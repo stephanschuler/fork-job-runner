@@ -1,0 +1,22 @@
+{
+  "name": "stephanschuler/fork-job-runner",
+  "description": "",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Stephan Schuler",
+      "email": "stephan.schuler@netlogix.de"
+    }
+  ],
+  "require": {
+    "php": "*",
+    "ext-pcntl": "*",
+    "ext-posix": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "StephanSchuler\\ForkJobRunner\\": "src"
+    }
+  }
+}
