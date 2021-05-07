@@ -5,5 +5,7 @@ require getenv('AUTOLOADER');
 
 use StephanSchuler\ForkJobRunner\Loop;
 
-$loop = new Loop('php://stdin', 'php://stdout');
-$loop->run();
+Loop::create()
+    ->readFrom('php://stdin')
+    ->writeTo('php://stdout')
+    ->run();

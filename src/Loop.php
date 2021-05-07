@@ -16,7 +16,7 @@ use function pcntl_fork;
 use function pcntl_waitpid;
 use function trim;
 
-class Loop
+final class Loop
 {
     /** @var string */
     private $commandChannel;
@@ -28,6 +28,21 @@ class Loop
     {
         $this->commandChannel = $commandChannel;
         $this->returnChannel = $returnChannel;
+    }
+
+    public static function create(): self
+    {
+        return new static('php://stdin', 'php://stdout');
+    }
+
+    public function readFrom(string $commandChannel): self
+    {
+        return new static($commandChannel, $this->returnChannel);
+    }
+
+    public function writeTo(string $returnChannel): self
+    {
+        return new static($this->commandChannel, $returnChannel);
     }
 
     public function run(): void
