@@ -6,6 +6,9 @@ namespace StephanSchuler\ForkJobRunner\Tests;
 use Exception;
 use PHPUnit\Framework\TestCase;
 use StephanSchuler\ForkJobRunner\Dispatcher;
+use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
+use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
+use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use function file_put_contents;
 use function iterator_to_array;
 use function sys_get_temp_dir;
@@ -16,7 +19,10 @@ class DispatchingTest extends TestCase
     /** @test */
     public function Dispatcher_call_jobs_and_return_data(): void
     {
-        $job = new TestJob('first line', 'second line');
+        $firstLineText = 'first line';
+        $secondLineText = 'second line';
+
+        $job = new TestJob($firstLineText, $secondLineText);
 
         putenv('AUTOLOADER=' . __DIR__ . '/../vendor/autoload.php');
         $phpcode = <<<'PHP'
@@ -38,7 +44,11 @@ PHP;
 
         self::assertInstanceOf(\Generator::class, $result);
         self::assertEquals(
-            ['noop' . PHP_EOL, 'first line' . PHP_EOL, 'second line' . PHP_EOL],
+            [
+                PackageSerializer::toString(new NoOpResponse()),
+                PackageSerializer::toString(new DefaultResponse($firstLineText)),
+                PackageSerializer::toString(new DefaultResponse($secondLineText)),
+            ],
             iterator_to_array($result)
         );
     }

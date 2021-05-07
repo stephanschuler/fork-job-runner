@@ -6,6 +6,8 @@ namespace StephanSchuler\ForkJobRunner\Tests;
 use Exception;
 use PHPUnit\Framework\TestCase;
 use StephanSchuler\ForkJobRunner\Loop;
+use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
+use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use function file_put_contents;
 use function proc_open;
@@ -14,9 +16,7 @@ use function tempnam;
 
 class LoopTest extends TestCase
 {
-    /**
-     * @test
-     */
+    /** @test */
     public function Loop_calls_jobs_from_command_stream(): void
     {
         $phpcode = <<<'PHP'
@@ -37,7 +37,10 @@ PHP;
         $input = self::tmpfile('input');
         $output = self::tmpfile('output');
 
-        $job = new TestJob('line 1', 'line 2');
+        $lineOneText = 'line 1 text';
+        $lineTwoText = 'line 2 text';
+
+        $job = new TestJob($lineOneText, $lineTwoText);
         file_put_contents($input, PackageSerializer::toString($job));
 
         $proc = proc_open(
@@ -60,12 +63,11 @@ PHP;
         }
         proc_close($proc);
 
-        $expected = <<<'TXT'
-noop
-line 1
-line 2
-
-TXT;
+        $expected = join('', [
+            PackageSerializer::toString(new NoOpResponse()),
+            PackageSerializer::toString(new DefaultResponse($lineOneText)),
+            PackageSerializer::toString(new DefaultResponse($lineTwoText))
+        ]);
 
         self::assertStringEqualsFile($output, $expected);
     }

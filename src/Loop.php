@@ -4,10 +4,14 @@ declare(strict_types=1);
 namespace StephanSchuler\ForkJobRunner;
 
 use RuntimeException;
+use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
+use StephanSchuler\ForkJobRunner\Response\Response;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use Throwable;
 use function assert;
+use function fclose;
 use function fgets;
+use function fputs;
 use function pcntl_fork;
 use function pcntl_waitpid;
 use function set_exception_handler;
@@ -64,9 +68,9 @@ class Loop
             throw new \RuntimeException('Could not open return channel');
         }
 
-        fputs($returnChannel, 'noop' . PHP_EOL);
-        $job->run(function (string $line) use ($returnChannel) {
-            fputs($returnChannel, $line . PHP_EOL);
+        fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
+        $job->run(function (Response $response) use ($returnChannel) {
+            fputs($returnChannel, PackageSerializer::toString($response));
         });
         fclose($returnChannel);
 

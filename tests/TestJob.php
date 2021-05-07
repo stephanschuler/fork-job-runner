@@ -3,6 +3,8 @@
 namespace StephanSchuler\ForkJobRunner\Tests;
 
 use StephanSchuler\ForkJobRunner\Job;
+use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
+
 
 class TestJob implements Job
 {
@@ -17,7 +19,9 @@ class TestJob implements Job
     public function run(callable $writeBack): void
     {
         foreach ($this->messages as $message) {
-            $writeBack($message);
+            $writeBack(
+                new DefaultResponse($message)
+            );
         }
     }
 }
