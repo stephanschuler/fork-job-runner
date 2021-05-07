@@ -3,13 +3,9 @@ declare(strict_types=1);
 
 namespace StephanSchuler\ForkJobRunner;
 
-use StephanSchuler\ForkJobRunner\Response\Response;
+use StephanSchuler\ForkJobRunner\Utility\WriteBack;
 
 interface Job
 {
-    /**
-     * @param callable(Response $line):void $writeBack
-     * @see Response
-     */
-    public function run(callable $writeBack): void;
+    public function run(WriteBack $writeBack): void;
 }

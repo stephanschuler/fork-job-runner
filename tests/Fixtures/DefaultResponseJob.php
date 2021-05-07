@@ -4,6 +4,7 @@ namespace StephanSchuler\ForkJobRunner\Tests\Fixtures;
 
 use StephanSchuler\ForkJobRunner\Job;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
+use StephanSchuler\ForkJobRunner\Utility\WriteBack;
 
 class DefaultResponseJob implements Job
 {
@@ -15,10 +16,10 @@ class DefaultResponseJob implements Job
         $this->messages = $messages;
     }
 
-    public function run(callable $writeBack): void
+    public function run(WriteBack $writeBack): void
     {
         foreach ($this->messages as $message) {
-            $writeBack(
+            $writeBack->send(
                 new DefaultResponse($message)
             );
         }

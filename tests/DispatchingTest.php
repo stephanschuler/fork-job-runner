@@ -8,7 +8,9 @@ use PHPUnit\Framework\TestCase;
 use StephanSchuler\ForkJobRunner\Dispatcher;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
+use StephanSchuler\ForkJobRunner\Response\ThrowableResponse;
 use StephanSchuler\ForkJobRunner\Tests\Fixtures\DefaultResponseJob;
+use StephanSchuler\ForkJobRunner\Tests\Fixtures\ThrowableResponseJob;
 use function iterator_to_array;
 use function sys_get_temp_dir;
 use function tempnam;
@@ -46,9 +48,7 @@ class DispatchingTest extends TestCase
         );
     }
 
-    /**
-     * @test
-     */
+    /** @test */
     public function Dispatchers_can_run_multiple_jobs_one_at_a_time(): void
     {
         $first = false;
@@ -98,6 +98,18 @@ class DispatchingTest extends TestCase
         if (!$second) {
             self::markTestIncomplete('Job two did not run');
         }
+    }
+
+    /** @test */
+    public function Exceptions_thrown_while_executing_jobs_get_returned(): void
+    {
+        $job = new ThrowableResponseJob();
+        $result = iterator_to_array($this->dispatcher->run($job));
+
+        self::assertInstanceOf(ThrowableResponse::class, $result[1]);
+        assert($result[1] instanceof ThrowableResponse);
+
+        self::assertEquals('Something went wrong!', $result[1]->get()->getMessage());
     }
 
     protected static function tmpfile(string $reason): string

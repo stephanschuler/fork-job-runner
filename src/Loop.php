@@ -5,16 +5,15 @@ namespace StephanSchuler\ForkJobRunner;
 
 use RuntimeException;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
-use StephanSchuler\ForkJobRunner\Response\Response;
+use StephanSchuler\ForkJobRunner\Response\ThrowableResponse;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
-use Throwable;
+use StephanSchuler\ForkJobRunner\Utility\WriteBack;
 use function assert;
 use function fclose;
 use function fgets;
 use function fputs;
 use function pcntl_fork;
 use function pcntl_waitpid;
-use function set_exception_handler;
 use function trim;
 
 class Loop
@@ -59,10 +58,6 @@ class Loop
 
     final protected function asChild(string $data): void
     {
-        set_exception_handler(static function (Throwable $throwable): void {
-            throw $throwable;
-        });
-
         $job = PackageSerializer::fromString($data);
         assert($job instanceof Job);
 
@@ -72,10 +67,15 @@ class Loop
         }
 
         fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
-        $job->run(function (Response $response) use ($returnChannel) {
-            fputs($returnChannel, PackageSerializer::toString($response));
-        });
-        fclose($returnChannel);
+        try {
+            $writeBack = new WriteBack($returnChannel);
+            $job->run($writeBack);
+        } catch (\Exception $throwable) {
+            fputs($returnChannel, PackageSerializer::toString(new ThrowableResponse($throwable)));
+            throw $throwable;
+        } finally {
+            fclose($returnChannel);
+        }
     }
 
     final protected function asParent(int $child): void

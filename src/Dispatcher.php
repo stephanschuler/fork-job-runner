@@ -109,6 +109,8 @@ class Dispatcher
 
         $descriptors = [
             ['pipe', 'rb'],
+            ['file', '/dev/null', 'ab'],
+            ['file', '/dev/null', 'ab'],
         ];
 
         $this->loopProcess = proc_open(
