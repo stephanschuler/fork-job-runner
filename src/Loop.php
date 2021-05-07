@@ -45,8 +45,11 @@ class Loop
                 throw new RuntimeException('Could not fork into isolated execution');
             } elseif ($child === 0) {
                 $this->asChild($data);
+                // Children exit after doing the work
+                exit;
             } else {
                 $this->asParent($child);
+                // Parents continue to loop
             }
         }
 
@@ -73,8 +76,6 @@ class Loop
             fputs($returnChannel, PackageSerializer::toString($response));
         });
         fclose($returnChannel);
-
-        exit;
     }
 
     final protected function asParent(int $child): void
