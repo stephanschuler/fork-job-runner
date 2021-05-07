@@ -8,8 +8,7 @@ use PHPUnit\Framework\TestCase;
 use StephanSchuler\ForkJobRunner\Dispatcher;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
-use StephanSchuler\ForkJobRunner\Tests\Fixtures\TestJob;
-use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
+use StephanSchuler\ForkJobRunner\Tests\Fixtures\DefaultResponseJob;
 use function iterator_to_array;
 use function sys_get_temp_dir;
 use function tempnam;
@@ -33,15 +32,15 @@ class DispatchingTest extends TestCase
         $firstLineText = 'first line';
         $secondLineText = 'second line';
 
-        $job = new TestJob($firstLineText, $secondLineText);
+        $job = new DefaultResponseJob($firstLineText, $secondLineText);
         $result = $this->dispatcher->run($job);
 
         self::assertInstanceOf(\Generator::class, $result);
         self::assertEquals(
             [
-                PackageSerializer::toString(new NoOpResponse()),
-                PackageSerializer::toString(new DefaultResponse($firstLineText)),
-                PackageSerializer::toString(new DefaultResponse($secondLineText)),
+                new NoOpResponse(),
+                new DefaultResponse($firstLineText),
+                new DefaultResponse($secondLineText),
             ],
             iterator_to_array($result)
         );
@@ -57,15 +56,15 @@ class DispatchingTest extends TestCase
             $firstLineText = 'first line';
             $secondLineText = 'second line';
 
-            $job1 = new TestJob($firstLineText, $secondLineText);
+            $job1 = new DefaultResponseJob($firstLineText, $secondLineText);
             $result1 = $this->dispatcher->run($job1);
 
             self::assertInstanceOf(\Generator::class, $result1);
             self::assertEquals(
                 [
-                    PackageSerializer::toString(new NoOpResponse()),
-                    PackageSerializer::toString(new DefaultResponse($firstLineText)),
-                    PackageSerializer::toString(new DefaultResponse($secondLineText)),
+                    new NoOpResponse(),
+                    new DefaultResponse($firstLineText),
+                    new DefaultResponse($secondLineText),
                 ],
                 iterator_to_array($result1)
             );
@@ -78,15 +77,15 @@ class DispatchingTest extends TestCase
             $thirdLineText = 'third line';
             $fourthLineText = 'fourth line';
 
-            $job2 = new TestJob($thirdLineText, $fourthLineText);
+            $job2 = new DefaultResponseJob($thirdLineText, $fourthLineText);
             $result2 = $this->dispatcher->run($job2);
 
             self::assertInstanceOf(\Generator::class, $result2);
             self::assertEquals(
                 [
-                    PackageSerializer::toString(new NoOpResponse()),
-                    PackageSerializer::toString(new DefaultResponse($thirdLineText)),
-                    PackageSerializer::toString(new DefaultResponse($fourthLineText)),
+                    new NoOpResponse(),
+                    new DefaultResponse($thirdLineText),
+                    new DefaultResponse($fourthLineText),
                 ],
                 iterator_to_array($result2)
             );

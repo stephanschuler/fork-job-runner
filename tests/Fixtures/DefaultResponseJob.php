@@ -5,8 +5,7 @@ namespace StephanSchuler\ForkJobRunner\Tests\Fixtures;
 use StephanSchuler\ForkJobRunner\Job;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
 
-
-class TestJob implements Job
+class DefaultResponseJob implements Job
 {
     /** @var string[] $messages */
     private $messages;

@@ -7,7 +7,7 @@ use Exception;
 use PHPUnit\Framework\TestCase;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
-use StephanSchuler\ForkJobRunner\Tests\Fixtures\TestJob;
+use StephanSchuler\ForkJobRunner\Tests\Fixtures\DefaultResponseJob;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use function file_put_contents;
 use function proc_open;
@@ -25,7 +25,7 @@ class LoopTest extends TestCase
         $lineOneText = 'line 1 text';
         $lineTwoText = 'line 2 text';
 
-        $job = new TestJob($lineOneText, $lineTwoText);
+        $job = new DefaultResponseJob($lineOneText, $lineTwoText);
         file_put_contents($input, PackageSerializer::toString($job));
 
         $proc = proc_open(

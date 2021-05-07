@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace StephanSchuler\ForkJobRunner;
 
 use RuntimeException;
+use StephanSchuler\ForkJobRunner\Response\Response;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use Traversable;
 use function escapeshellcmd;
@@ -55,7 +56,7 @@ class Dispatcher
 
     /**
      * @param Job $job
-     * @return Traversable<string>
+     * @return Traversable<Response>
      */
     public function run(Job $job): Traversable
     {
@@ -78,7 +79,7 @@ class Dispatcher
                 $blockReturnChannel = null;
             }
 
-            yield $subject;
+            yield PackageSerializer::fromString($subject);
         }
     }
 
