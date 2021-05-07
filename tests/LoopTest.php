@@ -27,7 +27,7 @@ require getenv('AUTOLOADER');
 
 use StephanSchuler\ForkJobRunner\Loop;
 
-$loop = new Loop(STDIN);
+$loop = new Loop('php://stdin', 'php://stdout');
 $loop->run();
 PHP;
 
@@ -60,7 +60,14 @@ PHP;
         }
         proc_close($proc);
 
-        self::assertStringEqualsFile($output, 'line 1' . PHP_EOL . 'line 2' . PHP_EOL);
+        $expected = <<<'TXT'
+noop
+line 1
+line 2
+
+TXT;
+
+        self::assertStringEqualsFile($output, $expected);
     }
 
     protected static function tmpfile(string $reason): string

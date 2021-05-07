@@ -15,22 +15,26 @@ use function trim;
 
 class Loop
 {
-    /**
-     * @var resource
-     */
+    /** @var string */
     private $commandChannel;
 
-    /**
-     * @param resource $commandChannel
-     */
-    public function __construct($commandChannel)
+    /** @var string */
+    private $returnChannel;
+
+    public function __construct(string $commandChannel, string $returnChannel)
     {
         $this->commandChannel = $commandChannel;
+        $this->returnChannel = $returnChannel;
     }
 
     public function run(): void
     {
-        while ($data = trim((string)fgets($this->commandChannel), PackageSerializer::SPLITTER)) {
+        $commandChannel = fopen($this->commandChannel, 'rb');
+        if (!$commandChannel) {
+            throw new \RuntimeException('Could not open command channel');
+        }
+
+        while ($data = trim((string)fgets($commandChannel), PackageSerializer::SPLITTER)) {
             $child = pcntl_fork();
 
             if ($child === -1) {
@@ -42,6 +46,7 @@ class Loop
             }
         }
 
+        fclose($commandChannel);
         exit;
     }
 
@@ -53,9 +58,17 @@ class Loop
 
         $job = PackageSerializer::fromString($data);
         assert($job instanceof Job);
-        $job->run(function (string $line) {
-            echo $line . PHP_EOL;
+
+        $returnChannel = fopen($this->returnChannel, 'wb+');
+        if (!$returnChannel) {
+            throw new \RuntimeException('Could not open return channel');
+        }
+
+        fputs($returnChannel, 'noop' . PHP_EOL);
+        $job->run(function (string $line) use ($returnChannel) {
+            fputs($returnChannel, $line . PHP_EOL);
         });
+        fclose($returnChannel);
 
         exit;
     }
