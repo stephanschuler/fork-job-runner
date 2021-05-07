@@ -1,6 +1,6 @@
 <?php
 
-namespace StephanSchuler\ForkJobRunner\Tests;
+namespace StephanSchuler\ForkJobRunner\Tests\Fixtures;
 
 use StephanSchuler\ForkJobRunner\Job;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;

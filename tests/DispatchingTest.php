@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use StephanSchuler\ForkJobRunner\Dispatcher;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
+use StephanSchuler\ForkJobRunner\Tests\Fixtures\TestJob;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use function iterator_to_array;
 use function sys_get_temp_dir;

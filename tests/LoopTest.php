@@ -7,6 +7,7 @@ use Exception;
 use PHPUnit\Framework\TestCase;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
+use StephanSchuler\ForkJobRunner\Tests\Fixtures\TestJob;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use function file_put_contents;
 use function proc_open;
