@@ -5,7 +5,6 @@ namespace StephanSchuler\ForkJobRunner\Tests;
 
 use Exception;
 use PHPUnit\Framework\TestCase;
-use StephanSchuler\ForkJobRunner\Loop;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
@@ -19,21 +18,6 @@ class LoopTest extends TestCase
     /** @test */
     public function Loop_calls_jobs_from_command_stream(): void
     {
-        $phpcode = <<<'PHP'
-<?PHP
-declare(strict_types=1);
-
-require getenv('AUTOLOADER');
-
-use StephanSchuler\ForkJobRunner\Loop;
-
-$loop = new Loop('php://stdin', 'php://stdout');
-$loop->run();
-PHP;
-
-        $tmpfile = self::tmpfile('phpcode');
-        file_put_contents($tmpfile, $phpcode);
-
         $input = self::tmpfile('input');
         $output = self::tmpfile('output');
 
@@ -44,7 +28,7 @@ PHP;
         file_put_contents($input, PackageSerializer::toString($job));
 
         $proc = proc_open(
-            'php ' . $tmpfile,
+            'php ' . escapeshellarg(__DIR__ . '/Fixtures/loop-to-stdout.php'),
             [['file', $input, 'r'], ['file', $output, 'w'], ['file', $output, 'w'],],
             $pipes,
             getcwd() ?: null,

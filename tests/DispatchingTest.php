@@ -9,7 +9,6 @@ use StephanSchuler\ForkJobRunner\Dispatcher;
 use StephanSchuler\ForkJobRunner\Response\DefaultResponse;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
-use function file_put_contents;
 use function iterator_to_array;
 use function sys_get_temp_dir;
 use function tempnam;
@@ -24,21 +23,7 @@ class DispatchingTest extends TestCase
         parent::setUp();
 
         putenv('AUTOLOADER=' . __DIR__ . '/../vendor/autoload.php');
-        $phpcode = <<<'PHP'
-<?PHP
-declare(strict_types=1);
-
-require getenv('AUTOLOADER');
-
-use StephanSchuler\ForkJobRunner\Loop;
-
-$loop = new Loop('php://stdin', getenv('RETURN_CHANNEL'));
-$loop->run();
-PHP;
-        $loop = self::tmpfile('loop');
-        file_put_contents($loop, $phpcode);
-
-        $this->dispatcher = new Dispatcher($loop);
+        $this->dispatcher = new Dispatcher(__DIR__ . '/Fixtures/loop-to-configurable-output.php');
     }
 
     /** @test */
