@@ -30,7 +30,7 @@ class Dispatcher
     const RETURN_CHANNEL = 'RETURN_CHANNEL';
 
     /** @var string */
-    private $loopPath;
+    private $loopCommand;
 
     /** @var string */
     private $returnChannelPath;
@@ -47,9 +47,9 @@ class Dispatcher
     /** @var ?resource */
     private $stdErrChannel;
 
-    public function __construct(string $loopPath)
+    public function __construct(string $loopCommand)
     {
-        $this->loopPath = $loopPath;
+        $this->loopCommand = $loopCommand;
 
         $this->returnChannelPath = (string)tempnam(sys_get_temp_dir(), 'return-channel');
         unlink(@$this->returnChannelPath);
@@ -135,7 +135,7 @@ class Dispatcher
             return;
         }
 
-        $command = escapeshellcmd(PHP_BINARY) . ' ' . escapeshellarg($this->loopPath);
+        $command = $this->loopCommand;
 
         $descriptors = [
             ['pipe', 'rb'],

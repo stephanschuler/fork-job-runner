@@ -27,7 +27,7 @@ class DispatchingTest extends TestCase
         parent::setUp();
 
         putenv('AUTOLOADER=' . __DIR__ . '/../vendor/autoload.php');
-        $this->dispatcher = new Dispatcher(__DIR__ . '/Fixtures/loop-to-configurable-output.php');
+        $this->dispatcher = new Dispatcher(escapeshellcmd(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/Fixtures/loop-to-configurable-output.php'));
     }
 
     /** @test */
