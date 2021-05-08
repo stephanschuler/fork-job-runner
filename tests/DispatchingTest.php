@@ -45,6 +45,7 @@ class DispatchingTest extends TestCase
                 new NoOpResponse(),
                 new DefaultResponse($firstLineText),
                 new DefaultResponse($secondLineText),
+                new NoOpResponse(),
             ],
             iterator_to_array($result)
         );
@@ -67,6 +68,7 @@ class DispatchingTest extends TestCase
                     new NoOpResponse(),
                     new DefaultResponse($firstLineText),
                     new DefaultResponse($secondLineText),
+                    new NoOpResponse(),
                 ],
                 iterator_to_array($result1)
             );
@@ -88,6 +90,7 @@ class DispatchingTest extends TestCase
                     new NoOpResponse(),
                     new DefaultResponse($thirdLineText),
                     new DefaultResponse($fourthLineText),
+                    new NoOpResponse(),
                 ],
                 iterator_to_array($result2)
             );

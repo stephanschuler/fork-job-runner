@@ -52,6 +52,7 @@ class LoopTest extends TestCase
             PackageSerializer::toString(new NoOpResponse()),
             PackageSerializer::toString(new DefaultResponse($lineOneText)),
             PackageSerializer::toString(new DefaultResponse($lineTwoText)),
+            PackageSerializer::toString(new NoOpResponse()),
         ]);
 
         self::assertStringEqualsFile($output, $expected);
