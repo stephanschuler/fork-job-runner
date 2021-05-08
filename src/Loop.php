@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace StephanSchuler\ForkJobRunner;
 
+use Exception;
 use RuntimeException;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
 use StephanSchuler\ForkJobRunner\Response\ThrowableResponse;
@@ -49,14 +50,14 @@ final class Loop
     {
         $commandChannel = fopen($this->commandChannel, 'rb');
         if (!$commandChannel) {
-            throw new \RuntimeException('Could not open command channel');
+            throw new RuntimeException('Could not open command channel', 1620514191);
         }
 
         while ($data = trim((string)fgets($commandChannel), PackageSerializer::SPLITTER)) {
             $child = pcntl_fork();
 
             if ($child === -1) {
-                throw new RuntimeException('Could not fork into isolated execution');
+                throw new RuntimeException('Could not fork into isolated execution', 1620514200);
             } elseif ($child === 0) {
                 $this->asChild($data);
                 // Children exit after doing the work
@@ -78,14 +79,14 @@ final class Loop
 
         $returnChannel = fopen($this->returnChannel, 'wb+');
         if (!$returnChannel) {
-            throw new \RuntimeException('Could not open return channel');
+            throw new RuntimeException('Could not open return channel', 1620514205);
         }
 
         fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
         try {
             $writeBack = new WriteBack($returnChannel);
             $job->run($writeBack);
-        } catch (\Exception $throwable) {
+        } catch (Exception $throwable) {
             fputs($returnChannel, PackageSerializer::toString(new ThrowableResponse($throwable)));
             throw $throwable;
         } finally {

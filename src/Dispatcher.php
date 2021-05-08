@@ -72,16 +72,16 @@ class Dispatcher
         $blockReturnChannel = fopen($this->returnChannelPath, 'ab+');
         $returnChannel = fopen($this->returnChannelPath, 'rb');
         if (!$returnChannel) {
-            throw new RuntimeException('Return channel unavailable');
+            throw new RuntimeException('Return channel unavailable', 1620514171);
         }
 
         if (!$this->commandChannel) {
-            throw new RuntimeException('Command channel unavailable');
+            throw new RuntimeException('Command channel unavailable', 1620514174);
         }
-        $put = fputs($this->commandChannel, PackageSerializer::toString($job));
+        $put = fputs($this->commandChannel, PackageSerializer::toString($job), 1620514177);
         if ($put === false) {
             yield new ThrowableResponse(
-                new RuntimeException('Command channel unavailable')
+                new RuntimeException('Command channel unavailable', 1620514181)
             );
             return;
         }
