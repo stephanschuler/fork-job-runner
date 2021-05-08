@@ -51,7 +51,7 @@ class LoopTest extends TestCase
         $expected = join('', [
             PackageSerializer::toString(new NoOpResponse()),
             PackageSerializer::toString(new DefaultResponse($lineOneText)),
-            PackageSerializer::toString(new DefaultResponse($lineTwoText))
+            PackageSerializer::toString(new DefaultResponse($lineTwoText)),
         ]);
 
         self::assertStringEqualsFile($output, $expected);

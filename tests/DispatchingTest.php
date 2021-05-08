@@ -11,6 +11,8 @@ use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
 use StephanSchuler\ForkJobRunner\Response\ThrowableResponse;
 use StephanSchuler\ForkJobRunner\Tests\Fixtures\DefaultResponseJob;
 use StephanSchuler\ForkJobRunner\Tests\Fixtures\ThrowableResponseJob;
+use function escapeshellarg;
+use function escapeshellcmd;
 use function iterator_to_array;
 use function sys_get_temp_dir;
 use function tempnam;

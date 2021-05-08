@@ -5,10 +5,11 @@ namespace StephanSchuler\ForkJobRunner;
 
 use RuntimeException;
 use StephanSchuler\ForkJobRunner\Response\Response;
+use StephanSchuler\ForkJobRunner\Response\ThrowableResponse;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use Traversable;
-use function escapeshellcmd;
 use function fclose;
+use function feof;
 use function fgets;
 use function file_exists;
 use function fopen;
@@ -39,6 +40,12 @@ class Dispatcher
 
     /** @var ?resource */
     private $commandChannel;
+
+    /** @var ?resource */
+    private $stdOutChannel;
+
+    /** @var ?resource */
+    private $stdErrChannel;
 
     public function __construct(string $loopPath)
     {
@@ -71,16 +78,39 @@ class Dispatcher
         if (!$this->commandChannel) {
             throw new RuntimeException('Command channel unavailable');
         }
-        fputs($this->commandChannel, PackageSerializer::toString($job));
+        $put = fputs($this->commandChannel, PackageSerializer::toString($job));
+        if ($put === false) {
+            yield new ThrowableResponse(
+                new RuntimeException('Command channel unavailable')
+            );
+            return;
+        }
 
-        while (!(($subject = fgets($returnChannel)) === false)) {
-            if ($blockReturnChannel) {
+        while (true) {
+            $read = [$returnChannel];
+            $write = null;
+            $except = null;
+
+            stream_select($read, $write, $except, 1);
+
+            if (isset($blockReturnChannel) && is_resource($blockReturnChannel)) {
                 fclose($blockReturnChannel);
-                $blockReturnChannel = null;
+                unset($blockReturnChannel);
             }
 
-            yield PackageSerializer::fromString($subject);
+            foreach ($read as $channel) {
+                $content = fgets($channel);
+                if ($content) {
+                    yield PackageSerializer::fromString($content);
+                }
+            }
+
+            if (feof($returnChannel)) {
+                break;
+            }
         }
+
+        fclose($returnChannel);
     }
 
     /** @param resource|null $process */
@@ -113,12 +143,15 @@ class Dispatcher
             ['file', '/dev/null', 'ab'],
         ];
 
+        $environment = getenv();
+        $environment[self::RETURN_CHANNEL] = $this->returnChannelPath;
+
         $this->loopProcess = proc_open(
             $command,
             $descriptors,
             $pipes,
             null,
-            [self::RETURN_CHANNEL => $this->returnChannelPath, 'AUTOLOADER' => getenv('AUTOLOADER')]
+            $environment
         ) ?: null;
 
         $this->commandChannel = $pipes[0];
