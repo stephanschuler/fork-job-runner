@@ -89,7 +89,10 @@ final class Loop
             fputs($returnChannel, PackageSerializer::toString(new ThrowableResponse($throwable)));
             throw $throwable;
         } finally {
-            fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
+            register_shutdown_function(static function () use ($returnChannel) {
+                fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
+                fclose($returnChannel);
+            });
         }
     }
 
