@@ -60,8 +60,8 @@ final class Loop
                 throw new RuntimeException('Could not fork into isolated execution', 1620514200);
             } elseif ($child === 0) {
                 $this->asChild($data);
-                // Children exit after doing the work
-                exit;
+                // Children stop looping after doing the work
+                return;
             } else {
                 $this->asParent($child);
                 // Parents continue to loop
@@ -69,7 +69,6 @@ final class Loop
         }
 
         fclose($commandChannel);
-        exit;
     }
 
     final protected function asChild(string $data): void
