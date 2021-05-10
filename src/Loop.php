@@ -5,6 +5,7 @@ namespace StephanSchuler\ForkJobRunner;
 
 use Exception;
 use RuntimeException;
+use spec\Http\Client\Common\Plugin\ResponseSeekableBodyPluginSpec;
 use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
 use StephanSchuler\ForkJobRunner\Response\ThrowableResponse;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
@@ -24,6 +25,9 @@ final class Loop
 
     /** @var string */
     private $returnChannel;
+
+    /** @var resource[] */
+    private static $returnChannels = [];
 
     public function __construct(string $commandChannel, string $returnChannel)
     {
@@ -80,6 +84,7 @@ final class Loop
         if (!$returnChannel) {
             throw new RuntimeException('Could not open return channel', 1620514205);
         }
+        self::$returnChannels[] = $returnChannel;
 
         fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
         try {
@@ -91,7 +96,6 @@ final class Loop
         } finally {
             register_shutdown_function(static function () use ($returnChannel) {
                 fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
-                fclose($returnChannel);
             });
         }
     }
