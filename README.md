@@ -10,6 +10,14 @@ and forks this process whenever a job is to be executed.
 All the demo code blow is to be implemented by the project, it is not provided
 by this package.
 
+This package does not aim for parallel processing. This might work but other
+libraries or frameworks like e.g. ReactPHP are way better suited for this.
+
+The primary objective is providing a technical basis for message queues in
+functional tests. There is specifically the Flowpack Jobqueue Common package
+shipping a Fake Queue where this package is meant to help providing a
+replacement.
+
 
 Jobs
 ----
