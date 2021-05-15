@@ -15,6 +15,7 @@ use function fgets;
 use function fputs;
 use function pcntl_fork;
 use function pcntl_waitpid;
+use function register_shutdown_function;
 use function trim;
 
 final class Loop
@@ -85,6 +86,10 @@ final class Loop
         try {
             $writeBack = new WriteBack($returnChannel);
             $job->run($writeBack);
+
+            register_shutdown_function(static function () use (&$returnChannel) {
+                fclose($returnChannel);
+            });
         } catch (Exception $throwable) {
             fputs($returnChannel, PackageSerializer::toString(new ThrowableResponse($throwable)));
             throw $throwable;
