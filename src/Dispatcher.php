@@ -27,13 +27,8 @@ use function unlink;
 
 class Dispatcher
 {
-    const RETURN_CHANNEL = 'RETURN_CHANNEL';
-
     /** @var string */
     private $loopCommand;
-
-    /** @var string */
-    private $returnChannelPath;
 
     /** @var ?resource */
     private $loopProcess;
@@ -50,10 +45,6 @@ class Dispatcher
     public function __construct(string $loopCommand)
     {
         $this->loopCommand = $loopCommand;
-
-        $this->returnChannelPath = (string)tempnam(sys_get_temp_dir(), 'return-channel');
-        unlink(@$this->returnChannelPath);
-        posix_mkfifo($this->returnChannelPath, 0600);
     }
 
     public function __destruct()
@@ -69,8 +60,8 @@ class Dispatcher
     {
         $this->ensureLoop();
 
-        $blockReturnChannel = fopen($this->returnChannelPath, 'ab+');
-        $returnChannel = fopen($this->returnChannelPath, 'rb');
+        $blockReturnChannel = fopen($job->getReturnChannel(), 'ab+');
+        $returnChannel = fopen($job->getReturnChannel(), 'rb');
         if (!$returnChannel) {
             throw new RuntimeException('Return channel unavailable', 1620514171);
         }
@@ -110,6 +101,7 @@ class Dispatcher
         }
 
         fclose($returnChannel);
+        @unlink($job->getReturnChannel());
     }
 
     protected function checkForRunningLoop(): void
@@ -157,7 +149,6 @@ class Dispatcher
         ];
 
         $environment = getenv();
-        $environment[self::RETURN_CHANNEL] = $this->returnChannelPath;
 
         $this->loopProcess = proc_open(
             $command,
@@ -175,9 +166,6 @@ class Dispatcher
         if ($this->loopProcess) {
             proc_close($this->loopProcess);
             $this->loopProcess = null;
-        }
-        if (file_exists($this->returnChannelPath)) {
-            unlink($this->returnChannelPath);
         }
     }
 }

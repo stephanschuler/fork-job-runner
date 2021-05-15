@@ -20,7 +20,6 @@ class LoopTest extends TestCase
     public function Loop_calls_jobs_from_command_stream(): void
     {
         $input = self::tmpfile('input');
-        $output = self::tmpfile('output');
 
         $lineOneText = 'line 1 text';
         $lineTwoText = 'line 2 text';
@@ -30,11 +29,14 @@ class LoopTest extends TestCase
 
         $proc = proc_open(
             'php ' . escapeshellarg(__DIR__ . '/Fixtures/loop-to-stdout.php'),
-            [['file', $input, 'r'], ['file', $output, 'w'], ['file', $output, 'w'],],
+            [['file', $input, 'r']],
             $pipes,
             getcwd() ?: null,
             ['AUTOLOADER' => __DIR__ . '/../vendor/autoload.php',]
         );
+
+        $output = \file_get_contents($job->getReturnChannel());
+
         if (!$proc) {
             self::markTestIncomplete('sub process could not be created');
             return;
@@ -55,7 +57,7 @@ class LoopTest extends TestCase
             PackageSerializer::toString(new NoOpResponse()),
         ]);
 
-        self::assertStringEqualsFile($output, $expected);
+        self::assertEquals($output, $expected);
     }
 
     protected static function tmpfile(string $reason): string

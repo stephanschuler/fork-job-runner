@@ -11,9 +11,16 @@ class DefaultResponseJob implements Job
     /** @var string[] $messages */
     private $messages;
 
+    /** @var string */
+    private $returnChannelPath;
+
     public function __construct(string ...$messages)
     {
         $this->messages = $messages;
+
+        $this->returnChannelPath = (string)tempnam(sys_get_temp_dir(), 'return-channel');
+        unlink(@$this->returnChannelPath);
+        posix_mkfifo($this->returnChannelPath, 0600);
     }
 
     public function run(WriteBack $writeBack): void
@@ -23,5 +30,10 @@ class DefaultResponseJob implements Job
                 new DefaultResponse($message)
             );
         }
+    }
+
+    public function getReturnChannel(): string
+    {
+        return $this->returnChannelPath;
     }
 }

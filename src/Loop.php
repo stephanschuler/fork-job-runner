@@ -23,28 +23,19 @@ final class Loop
     /** @var string */
     private $commandChannel;
 
-    /** @var string */
-    private $returnChannel;
-
-    public function __construct(string $commandChannel, string $returnChannel)
+    public function __construct(string $commandChannel)
     {
         $this->commandChannel = $commandChannel;
-        $this->returnChannel = $returnChannel;
     }
 
     public static function create(): self
     {
-        return new static('php://stdin', 'php://stdout');
+        return new static('php://stdin');
     }
 
     public function readFrom(string $commandChannel): self
     {
-        return new static($commandChannel, $this->returnChannel);
-    }
-
-    public function writeTo(string $returnChannel): self
-    {
-        return new static($this->commandChannel, $returnChannel);
+        return new static($commandChannel);
     }
 
     public function run(): void
@@ -77,7 +68,7 @@ final class Loop
         $job = PackageSerializer::fromString($data);
         assert($job instanceof Job);
 
-        $returnChannel = fopen($this->returnChannel, 'wb+');
+        $returnChannel = fopen($job->getReturnChannel(), 'wb+');
         if (!$returnChannel) {
             throw new RuntimeException('Could not open return channel', 1620514205);
         }

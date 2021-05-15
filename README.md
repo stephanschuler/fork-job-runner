@@ -101,7 +101,6 @@ require(__DIR__ . '/vendor/autoload.php');
 // Bootstrap framework here
 
 Loop::create()
-    ->writeTo(getenv(Dispatcher::RETURN_CHANNEL))
     ->run();
 ```
 
