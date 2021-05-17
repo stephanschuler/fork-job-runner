@@ -45,6 +45,8 @@ final class Loop
             throw new RuntimeException('Could not open command channel', 1620514191);
         }
 
+        $children = [];
+
         while ($data = trim((string)fgets($commandChannel), PackageSerializer::SPLITTER)) {
             $child = pcntl_fork();
 
@@ -55,12 +57,15 @@ final class Loop
                 // Children stop looping after doing the work
                 return;
             } else {
-                $this->asParent($child);
+                $children[] = $child;
                 // Parents continue to loop
             }
         }
 
         fclose($commandChannel);
+        foreach ($children as $child) {
+            pcntl_waitpid($child, $statuscode);
+        }
     }
 
     final protected function asChild(string $data): void
@@ -87,10 +92,5 @@ final class Loop
         } finally {
             fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
         }
-    }
-
-    final protected function asParent(int $child): void
-    {
-        pcntl_waitpid($child, $statuscode);
     }
 }

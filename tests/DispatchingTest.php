@@ -39,7 +39,7 @@ class DispatchingTest extends TestCase
         $job = new DefaultResponseJob($firstLineText, $secondLineText);
         $result = $this->dispatcher->run($job);
 
-        self::assertInstanceOf(\Generator::class, $result);
+        self::assertInstanceOf(\Traversable::class, $result);
         self::assertEquals(
             [
                 new NoOpResponse(),
@@ -62,7 +62,7 @@ class DispatchingTest extends TestCase
             $job1 = new DefaultResponseJob($firstLineText, $secondLineText);
             $result1 = $this->dispatcher->run($job1);
 
-            self::assertInstanceOf(\Generator::class, $result1);
+            self::assertInstanceOf(\Traversable::class, $result1);
             self::assertEquals(
                 [
                     new NoOpResponse(),
@@ -84,7 +84,7 @@ class DispatchingTest extends TestCase
             $job2 = new DefaultResponseJob($thirdLineText, $fourthLineText);
             $result2 = $this->dispatcher->run($job2);
 
-            self::assertInstanceOf(\Generator::class, $result2);
+            self::assertInstanceOf(\Traversable::class, $result2);
             self::assertEquals(
                 [
                     new NoOpResponse(),

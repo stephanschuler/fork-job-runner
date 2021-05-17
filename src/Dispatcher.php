@@ -5,24 +5,17 @@ namespace StephanSchuler\ForkJobRunner;
 
 use RuntimeException;
 use StephanSchuler\ForkJobRunner\Response\Response;
+use StephanSchuler\ForkJobRunner\Response\Responses;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
-use Traversable;
 use function assert;
-use function fclose;
-use function feof;
-use function fgets;
-use function file_exists;
 use function fopen;
 use function fputs;
 use function getenv;
 use function is_array;
 use function is_resource;
-use function posix_mkfifo;
 use function proc_close;
 use function proc_get_status;
 use function proc_open;
-use function sys_get_temp_dir;
-use function tempnam;
 use function unlink;
 
 class Dispatcher
@@ -54,13 +47,22 @@ class Dispatcher
 
     /**
      * @param Job $job
-     * @return Traversable<Response>
+     * @return Responses<Response>
      */
-    public function run(Job $job): Traversable
+    public function run(Job $job): Responses
     {
         $this->ensureLoop();
 
+        $returnChannelPath = $job->getReturnChannel();
+        register_shutdown_function(static function () use ($returnChannelPath) {
+            @unlink($returnChannelPath);
+        });
+
         $blockReturnChannel = fopen($job->getReturnChannel(), 'ab+');
+        if (!$blockReturnChannel) {
+            throw new RuntimeException('Return channel cannot be blocked', 1621281816);
+        }
+
         $returnChannel = fopen($job->getReturnChannel(), 'rb');
         if (!$returnChannel) {
             throw new RuntimeException('Return channel unavailable', 1620514171);
@@ -74,37 +76,10 @@ class Dispatcher
             throw new RuntimeException('Command channel unavailable', 1620514181);
         }
 
-        while (true) {
-            $read = [$returnChannel];
-            $write = null;
-            $except = null;
-
-            stream_select($read, $write, $except, 1);
-
-            if (isset($blockReturnChannel) && is_resource($blockReturnChannel)) {
-                fclose($blockReturnChannel);
-                unset($blockReturnChannel);
-            }
-
-            foreach ($read as $channel) {
-                $content = fgets($channel);
-                if ($content) {
-                    yield PackageSerializer::fromString($content);
-                }
-            }
-
-            $this->checkForRunningLoop();
-
-            if (feof($returnChannel)) {
-                break;
-            }
-        }
-
-        fclose($returnChannel);
-        @unlink($job->getReturnChannel());
+        return Responses::create($this, $returnChannel, $blockReturnChannel);
     }
 
-    protected function checkForRunningLoop(): void
+    public function checkForRunningLoop(): void
     {
         if (!$this->commandChannel || !is_resource($this->commandChannel)) {
             throw new RuntimeException('Command channel unavailable', 1620514175);
