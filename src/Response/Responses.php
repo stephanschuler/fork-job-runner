@@ -12,6 +12,7 @@ use function fclose;
 use function feof;
 use function fgets;
 use function is_resource;
+use function register_shutdown_function;
 use function stream_select;
 
 /**
@@ -22,6 +23,9 @@ final class Responses implements IteratorAggregate
     /** @var Dispatcher */
     private $dispatcher;
 
+    /** @var string */
+    private $returnChannelPath;
+
     /** @var ?resource */
     private $returnChannel;
 
@@ -30,24 +34,35 @@ final class Responses implements IteratorAggregate
 
     /**
      * @param Dispatcher $dispatcher
+     * @param string $returnChannelPath
      * @param resource $returnChannel
      * @param resource $blockReturnChannel
      */
-    private function __construct(Dispatcher $dispatcher, $returnChannel, $blockReturnChannel)
-    {
+    private function __construct(
+        Dispatcher $dispatcher,
+        string $returnChannelPath,
+        $returnChannel,
+        $blockReturnChannel
+    ) {
         $this->dispatcher = $dispatcher;
+        $this->returnChannelPath = $returnChannelPath;
         $this->returnChannel = $returnChannel;
         $this->blockReturnChannel = $blockReturnChannel;
     }
 
     /**
      * @param Dispatcher $dispatcher
+     * @param string $returnChannelPath
      * @param resource $returnChannel
      * @param resource $blockReturnChannel
      * @return static
      */
-    public static function create(Dispatcher $dispatcher, $returnChannel, $blockReturnChannel): self
-    {
+    public static function create(
+        Dispatcher $dispatcher,
+        string $returnChannelPath,
+        $returnChannel,
+        $blockReturnChannel
+    ): self {
         if (!is_resource($returnChannel)) {
             throw new RuntimeException('Return channel is not open', 1621281176);
         }
@@ -55,7 +70,7 @@ final class Responses implements IteratorAggregate
             throw new RuntimeException('Return channel blocker is not open', 1621281180);
         }
 
-        return new static($dispatcher, $returnChannel, $blockReturnChannel);
+        return new static($dispatcher, $returnChannelPath, $returnChannel, $blockReturnChannel);
     }
 
     /** @return Generator<Response> */
@@ -73,7 +88,16 @@ final class Responses implements IteratorAggregate
         $blockReturnChannel = $this->blockReturnChannel;
         $this->blockReturnChannel = null;
 
+        $returnChannelPath = $this->returnChannelPath;
+
         $this->dispatcher->checkForRunningLoop();
+
+        $shutdown = static function () use ($blockReturnChannel, $returnChannel, $returnChannelPath) {
+            self::closeResource($blockReturnChannel);
+            self::closeResource($returnChannel);
+            @unlink($returnChannelPath);
+        };
+        register_shutdown_function($shutdown);
 
         while (true) {
             $read = [$returnChannel];
@@ -82,10 +106,7 @@ final class Responses implements IteratorAggregate
 
             stream_select($read, $write, $except, 1);
 
-            if (is_resource($blockReturnChannel)) {
-                fclose($blockReturnChannel);
-                $blockReturnChannel = null;
-            }
+            self::closeResource($blockReturnChannel);
 
             foreach ($read as $channel) {
                 $content = fgets($channel);
@@ -105,7 +126,17 @@ final class Responses implements IteratorAggregate
                 break;
             }
         }
+        $shutdown();
+    }
 
-        fclose($returnChannel);
+    /**
+     * @param ?resource $resource
+     */
+    private static function closeResource(&$resource): void
+    {
+        if (is_resource($resource)) {
+            @fclose($resource);
+            $resource = null;
+        }
     }
 }

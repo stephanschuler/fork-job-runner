@@ -13,10 +13,9 @@ use function fputs;
 use function getenv;
 use function is_array;
 use function is_resource;
-use function proc_close;
 use function proc_get_status;
 use function proc_open;
-use function unlink;
+use function proc_terminate;
 
 class Dispatcher
 {
@@ -54,16 +53,13 @@ class Dispatcher
         $this->ensureLoop();
 
         $returnChannelPath = $job->getReturnChannel();
-        register_shutdown_function(static function () use ($returnChannelPath) {
-            @unlink($returnChannelPath);
-        });
 
-        $blockReturnChannel = fopen($job->getReturnChannel(), 'ab+');
+        $blockReturnChannel = fopen($returnChannelPath, 'ab+');
         if (!$blockReturnChannel) {
             throw new RuntimeException('Return channel cannot be blocked', 1621281816);
         }
 
-        $returnChannel = fopen($job->getReturnChannel(), 'rb');
+        $returnChannel = fopen($returnChannelPath, 'rb');
         if (!$returnChannel) {
             throw new RuntimeException('Return channel unavailable', 1620514171);
         }
@@ -76,7 +72,12 @@ class Dispatcher
             throw new RuntimeException('Command channel unavailable', 1620514181);
         }
 
-        return Responses::create($this, $returnChannel, $blockReturnChannel);
+        return Responses::create(
+            $this,
+            $returnChannelPath,
+            $returnChannel,
+            $blockReturnChannel
+        );
     }
 
     public function checkForRunningLoop(): void
@@ -139,8 +140,12 @@ class Dispatcher
     private function closeLoop(): void
     {
         if ($this->loopProcess) {
-            proc_close($this->loopProcess);
+            @proc_terminate($this->loopProcess);
             $this->loopProcess = null;
+        }
+        if (is_resource($this->commandChannel)) {
+            @fclose($this->commandChannel);
+            $this->commandChannel = null;
         }
     }
 }

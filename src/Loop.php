@@ -9,19 +9,31 @@ use StephanSchuler\ForkJobRunner\Response\NoOpResponse;
 use StephanSchuler\ForkJobRunner\Response\ThrowableResponse;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use StephanSchuler\ForkJobRunner\Utility\WriteBack;
+use function array_filter;
 use function assert;
+use function cli_set_process_title;
 use function fclose;
 use function fgets;
+use function fopen;
 use function fputs;
 use function pcntl_fork;
 use function pcntl_waitpid;
+use function posix_kill;
 use function register_shutdown_function;
+use function stream_select;
+use function stream_set_blocking;
 use function trim;
+use const SIGTERM;
+use const WUNTRACED;
+use const WNOHANG;
 
 final class Loop
 {
     /** @var string */
     private $commandChannel;
+
+    /** @var int[] */
+    private $children = [];
 
     public function __construct(string $commandChannel)
     {
@@ -46,34 +58,67 @@ final class Loop
         }
 
         $children = [];
+        stream_set_blocking($commandChannel, false);
 
-        while ($data = trim((string)fgets($commandChannel), PackageSerializer::SPLITTER)) {
-            $child = pcntl_fork();
+        while (true) {
+            $read = [$commandChannel];
+            $write = null;
+            $except = null;
 
-            if ($child === -1) {
-                throw new RuntimeException('Could not fork into isolated execution', 1620514200);
-            } elseif ($child === 0) {
-                $this->asChild($data);
-                // Children stop looping after doing the work
-                return;
-            } else {
-                $children[] = $child;
-                // Parents continue to loop
+            stream_select($read, $write, $except, 1);
+
+            foreach ($read as $channel) {
+                $data = trim((string)fgets($channel), PackageSerializer::SPLITTER);
+                $child = pcntl_fork();
+
+                if ($child === -1) {
+                    throw new RuntimeException('Could not fork into isolated execution', 1620514200);
+                } elseif ($child === 0) {
+                    $this->asChild($data);
+                    // Children stop looping after doing the work
+                    return;
+                } else {
+                    $this->asParent($child);
+                    $children[] = $child;
+                }
+
+            }
+            if (feof($commandChannel)) {
+                break;
             }
         }
 
-        fclose($commandChannel);
+        @fclose($commandChannel);
+
+        $this->clearChildren();
         foreach ($children as $child) {
-            pcntl_waitpid($child, $statuscode);
+            @posix_kill($child, SIGTERM);
         }
     }
 
-    final protected function asChild(string $data): void
+    private function asParent(int $child): void
     {
+        cli_set_process_title('I am the parent!');
+        $this->children[] = $child;
+        $this->clearChildren();
+    }
+
+    private function clearChildren(): void
+    {
+        $this->children = array_filter($this->children, static function (int $child) {
+            $res = pcntl_waitpid($child, $status, WUNTRACED | WNOHANG);
+            return !($res == -1 || $res > 0);
+        });
+    }
+
+    private function asChild(string $data): void
+    {
+        cli_set_process_title('I am the child!');
         $job = PackageSerializer::fromString($data);
         assert($job instanceof Job);
 
-        $returnChannel = fopen($job->getReturnChannel(), 'wb+');
+        $returnChannelPath = $job->getReturnChannel();
+        $returnChannel = fopen($returnChannelPath, 'wb+');
         if (!$returnChannel) {
             throw new RuntimeException('Could not open return channel', 1620514205);
         }
@@ -84,7 +129,7 @@ final class Loop
             $job->run($writeBack);
 
             register_shutdown_function(static function () use (&$returnChannel) {
-                fclose($returnChannel);
+                @fclose($returnChannel);
             });
         } catch (Exception $throwable) {
             fputs($returnChannel, PackageSerializer::toString(new ThrowableResponse($throwable)));
