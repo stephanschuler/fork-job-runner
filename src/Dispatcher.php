@@ -8,17 +8,24 @@ use StephanSchuler\ForkJobRunner\Response\Response;
 use StephanSchuler\ForkJobRunner\Response\Responses;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use function assert;
+use function fclose;
 use function fopen;
 use function fputs;
 use function getenv;
 use function is_array;
 use function is_resource;
+use function posix_mkfifo;
 use function proc_get_status;
 use function proc_open;
 use function proc_terminate;
+use function sys_get_temp_dir;
+use function tempnam;
+use function unlink;
 
 class Dispatcher
 {
+    const FORK_QUEUE_COMMAND_CHANNEL = 'FORK_QUEUE_COMMAND_CHANNEL';
+
     /** @var string */
     private $loopCommand;
 
@@ -27,6 +34,9 @@ class Dispatcher
 
     /** @var ?resource */
     private $commandChannel;
+
+    /** @var ?string */
+    private $commandChannelFileName;
 
     /** @var ?resource */
     private $stdOutChannel;
@@ -118,13 +128,18 @@ class Dispatcher
 
         $command = $this->loopCommand;
 
+        $this->commandChannelFileName = (string)tempnam(sys_get_temp_dir(), 'command-channel');
+        @unlink($this->commandChannelFileName);
+        posix_mkfifo($this->commandChannelFileName, 0600);
+
+        $environment = getenv();
+        $environment[self::FORK_QUEUE_COMMAND_CHANNEL] = $this->commandChannelFileName;
+
         $descriptors = [
             ['pipe', 'rb'],
             ['file', '/dev/null', 'ab'],
             ['file', '/dev/null', 'ab'],
         ];
-
-        $environment = getenv();
 
         $this->loopProcess = proc_open(
             $command,
@@ -134,7 +149,7 @@ class Dispatcher
             $environment
         ) ?: null;
 
-        $this->commandChannel = $pipes[0];
+        $this->commandChannel = fopen($this->commandChannelFileName, 'wb') ?: null;
     }
 
     private function closeLoop(): void
@@ -146,6 +161,10 @@ class Dispatcher
         if (is_resource($this->commandChannel)) {
             @fclose($this->commandChannel);
             $this->commandChannel = null;
+        }
+        if (is_string($this->commandChannelFileName)) {
+            @unlink($this->commandChannelFileName);
+            $this->commandChannelFileName = null;
         }
     }
 }
