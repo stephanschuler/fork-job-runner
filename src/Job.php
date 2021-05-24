@@ -8,6 +8,4 @@ use StephanSchuler\ForkJobRunner\Utility\WriteBack;
 interface Job
 {
     public function run(WriteBack $writeBack): void;
-
-    public function getReturnChannel(): string;
 }

@@ -5,7 +5,6 @@ namespace StephanSchuler\ForkJobRunner\Response;
 
 use Generator;
 use IteratorAggregate;
-use RuntimeException;
 use StephanSchuler\ForkJobRunner\Dispatcher;
 use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use function fclose;
@@ -13,7 +12,9 @@ use function feof;
 use function fgets;
 use function is_resource;
 use function register_shutdown_function;
+use function socket_set_blocking;
 use function stream_select;
+use function stream_socket_shutdown;
 
 /**
  * @implements IteratorAggregate<Response>
@@ -23,95 +24,56 @@ final class Responses implements IteratorAggregate
     /** @var Dispatcher */
     private $dispatcher;
 
-    /** @var string */
-    private $returnChannelPath;
-
-    /** @var ?resource */
-    private $returnChannel;
-
-    /** @var ?resource */
-    private $blockReturnChannel;
+    /** @var resource */
+    private $socket;
 
     /**
      * @param Dispatcher $dispatcher
-     * @param string $returnChannelPath
-     * @param resource $returnChannel
-     * @param resource $blockReturnChannel
+     * @param resource $socket
      */
     private function __construct(
         Dispatcher $dispatcher,
-        string $returnChannelPath,
-        $returnChannel,
-        $blockReturnChannel
+        $socket
     ) {
         $this->dispatcher = $dispatcher;
-        $this->returnChannelPath = $returnChannelPath;
-        $this->returnChannel = $returnChannel;
-        $this->blockReturnChannel = $blockReturnChannel;
+        $this->socket = $socket;
     }
 
     /**
      * @param Dispatcher $dispatcher
-     * @param string $returnChannelPath
-     * @param resource $returnChannel
-     * @param resource $blockReturnChannel
+     * @param resource $socket
      * @return static
      */
     public static function create(
         Dispatcher $dispatcher,
-        string $returnChannelPath,
-        $returnChannel,
-        $blockReturnChannel
+        $socket
     ): self {
-        if (!is_resource($returnChannel)) {
-            throw new RuntimeException('Return channel is not open', 1621281176);
-        }
-        if (!is_resource($blockReturnChannel)) {
-            throw new RuntimeException('Return channel blocker is not open', 1621281180);
-        }
-
-        return new static($dispatcher, $returnChannelPath, $returnChannel, $blockReturnChannel);
+        return new static($dispatcher, $socket);
     }
 
     /** @return Generator<Response> */
     public function getIterator(): Generator
     {
-        if (!is_resource($this->returnChannel)) {
-            return;
-        }
-        $returnChannel = $this->returnChannel;
-        $this->returnChannel = null;
-
-        if (!is_resource($this->blockReturnChannel)) {
-            return;
-        }
-        $blockReturnChannel = $this->blockReturnChannel;
-        $this->blockReturnChannel = null;
-
-        $returnChannelPath = $this->returnChannelPath;
-
-        $this->dispatcher->checkForRunningLoop();
-
-        $shutdown = static function () use ($blockReturnChannel, $returnChannel, $returnChannelPath) {
-            self::closeResource($blockReturnChannel);
-            self::closeResource($returnChannel);
-            @unlink($returnChannelPath);
+        $socket = $this->socket;
+        socket_set_blocking($socket, true);
+        $shutdown = static function () use ($socket) {
+            self::closeResource($socket);
         };
         register_shutdown_function($shutdown);
 
         while (true) {
-            $read = [$returnChannel];
+            $read = [$socket];
             $write = null;
             $except = null;
 
-            stream_select($read, $write, $except, 1);
+            stream_select($read, $write, $except, 0, 100000);
 
-            self::closeResource($blockReturnChannel);
-
+            $responses = [];
             foreach ($read as $channel) {
                 $content = fgets($channel);
                 if ($content) {
                     $response = PackageSerializer::fromString($content);
+                    $responses[] = $response;
                     if ($response instanceof Response) {
                         yield $response;
                     } else {
@@ -120,9 +82,7 @@ final class Responses implements IteratorAggregate
                 }
             }
 
-            $this->dispatcher->checkForRunningLoop();
-
-            if (feof($returnChannel)) {
+            if (feof($socket)) {
                 break;
             }
         }
@@ -135,8 +95,8 @@ final class Responses implements IteratorAggregate
     private static function closeResource(&$resource): void
     {
         if (is_resource($resource)) {
-            @fclose($resource);
-            $resource = null;
+            stream_socket_shutdown($resource, \STREAM_SHUT_RDWR);
+            fclose($resource);
         }
     }
 }

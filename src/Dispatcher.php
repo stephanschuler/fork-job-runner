@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace StephanSchuler\ForkJobRunner;
 
+use Exception;
 use RuntimeException;
 use StephanSchuler\ForkJobRunner\Dispatcher\FollowingDispatcher;
 use StephanSchuler\ForkJobRunner\Dispatcher\LeadingDispatcher;
@@ -12,20 +13,25 @@ use StephanSchuler\ForkJobRunner\Utility\PackageSerializer;
 use function fopen;
 use function fputs;
 use function getenv;
+use function stream_socket_client;
+use function is_resource;
 
 abstract class Dispatcher
 {
     const FORK_QUEUE_COMMAND_CHANNEL = 'FORK_QUEUE_COMMAND_CHANNEL';
 
+    /** @var ?string */
+    protected $socketFileName;
+
     abstract protected function __construct(string $_);
 
     public static function create(string $loopCommand): self
     {
-        $commandChannelName = (string)getenv(self::FORK_QUEUE_COMMAND_CHANNEL);
-        if ($commandChannelName === '') {
+        $socketFileName = (string)getenv(self::FORK_QUEUE_COMMAND_CHANNEL);
+        if ($socketFileName === '') {
             return new LeadingDispatcher($loopCommand);
         } else {
-            return new FollowingDispatcher($commandChannelName);
+            return new FollowingDispatcher($socketFileName);
         }
     }
 
@@ -35,40 +41,45 @@ abstract class Dispatcher
      */
     public function run(Job $job): Responses
     {
-        $this->ensureLoop();
-        $commandChannel = $this->getCommandChannel();
-
-        $returnChannelPath = $job->getReturnChannel();
-
-        $blockReturnChannel = fopen($returnChannelPath, 'ab+');
-        if (!$blockReturnChannel) {
-            throw new RuntimeException('Return channel cannot be blocked', 1621281816);
+        if ($this instanceof LeadingDispatcher) {
+            $this->ensureLoop();
+        }
+        $socket = $this->getSocket();
+        if (!is_resource($socket)) {
+            throw new RuntimeException('Socket unavailable', 1621677645);
         }
 
-        $returnChannel = fopen($returnChannelPath, 'rb');
-        if (!$returnChannel) {
-            throw new RuntimeException('Return channel unavailable', 1620514171);
-        }
-
-        $this->checkForRunningLoop();
-
-        $put = fputs($commandChannel, PackageSerializer::toString($job));
+        $put = fputs($socket, PackageSerializer::toString($job));
         if ($put === false) {
             throw new RuntimeException('Command channel unavailable', 1620514181);
         }
 
         return Responses::create(
             $this,
-            $returnChannelPath,
-            $returnChannel,
-            $blockReturnChannel
+            $socket
         );
     }
 
-    abstract public function checkForRunningLoop(): void;
+    /**
+     * @return false|resource
+     */
+    protected function getSocket()
+    {
+        $socketFileName = 'unix://' . $this->socketFileName;
 
-    abstract protected function ensureLoop(): void;
-
-    /** @var resource */
-    abstract protected function getCommandChannel();
+        $socket = false;
+        $end = time() + 15;
+        while (!$socket) {
+            $socket = @stream_socket_client(
+                $socketFileName,
+                $errno,
+                $errstr,
+                1
+            );
+            if (time() >= $end) {
+                break;
+            }
+        }
+        return $socket;
+    }
 }

@@ -12,17 +12,21 @@ use StephanSchuler\ForkJobRunner\Utility\WriteBack;
 use function array_filter;
 use function assert;
 use function fclose;
+use function feof;
 use function fgets;
-use function file_exists;
-use function fopen;
 use function fputs;
 use function getenv;
+use function is_resource;
 use function pcntl_fork;
 use function pcntl_waitpid;
+use function posix_getppid;
 use function posix_kill;
 use function register_shutdown_function;
 use function stream_select;
-use function trim;
+use function stream_socket_accept;
+use function stream_socket_server;
+use function stream_socket_shutdown;
+use function unlink;
 use const SIGTERM;
 use const WNOHANG;
 use const WUNTRACED;
@@ -30,14 +34,14 @@ use const WUNTRACED;
 final class Loop
 {
     /** @var string */
-    private $commandChannel;
+    private $socketFileName;
 
     /** @var int[] */
     private $children = [];
 
-    public function __construct(string $commandChannel)
+    public function __construct(string $socketFileName)
     {
-        $this->commandChannel = $commandChannel;
+        $this->socketFileName = $socketFileName;
     }
 
     public static function create(): self
@@ -47,65 +51,57 @@ final class Loop
         );
     }
 
-    public function readFrom(string $commandChannel): self
+    public function run(): ?DeferredConnectionShutdown
     {
-        return new static($commandChannel);
-    }
-
-    public function run(): void
-    {
-        if (!file_exists($this->commandChannel)) {
-            throw new RuntimeException('Command channel does not exist', 1621479422);
-        }
-        $blockCommandChannel = fopen($this->commandChannel, 'ab+');
-        $commandChannel = fopen($this->commandChannel, 'rb');
-        if (!$commandChannel) {
-            throw new RuntimeException('Could not open command channel', 1620514191);
+        $socketFileName = 'unix://' . $this->socketFileName;
+        $socket = stream_socket_server($socketFileName, $errno, $errstr);
+        if (!is_resource($socket)) {
+            $explanation = join(': ', [$errno, $errstr]);
+            if ($explanation !== '') {
+                $explanation = '(' . $explanation . ')';
+            }
+            throw new RuntimeException('Could not create socket: "' . $this->socketFileName . $explanation, 1620514191);
         }
 
         $children = [];
 
         while (true) {
-            $read = [$commandChannel];
-            $write = null;
-            $except = null;
-
-            stream_select($read, $write, $except, 1);
-
-            foreach ($read as $channel) {
-                if (isset($blockCommandChannel) && is_resource($blockCommandChannel)) {
-                    fclose($blockCommandChannel);
-                    unset($blockCommandChannel);
-                }
-                $data = trim((string)fgets($channel), PackageSerializer::SPLITTER);
-                if ($data === '') {
-                    continue;
-                }
-                $child = pcntl_fork();
-
-                if ($child === -1) {
-                    throw new RuntimeException('Could not fork into isolated execution', 1620514200);
-                } elseif ($child === 0) {
-                    $this->asChild($data);
-                    // Children stop looping after doing the work
-                    return;
-                } else {
-                    $this->asParent($child);
-                    $children[] = $child;
-                }
-
-            }
-            if (feof($commandChannel)) {
+            if (posix_getppid() <= 1) {
+                // Parent is terminated.
                 break;
+            }
+
+            if (!is_resource($socket)) {
+                // Socket is closed
+                break;
+            }
+
+            $connection = @stream_socket_accept($socket, 1);
+            if (!is_resource($connection)) {
+                continue;
+            }
+
+            $child = pcntl_fork();
+
+            if ($child === -1) {
+                throw new RuntimeException('Could not fork into isolated execution', 1620514200);
+            } elseif ($child === 0) {
+                return $this->asChild($connection);
+            } else {
+                $this->asParent($child);
+                $children[] = $child;
             }
         }
 
-        @fclose($commandChannel);
+        fclose($socket);
 
         $this->clearChildren();
         foreach ($children as $child) {
-            @posix_kill($child, SIGTERM);
+            posix_kill($child, SIGTERM);
         }
+        @unlink($this->socketFileName);
+
+        return null;
     }
 
     private function asParent(int $child): void
@@ -122,30 +118,48 @@ final class Loop
         });
     }
 
-    private function asChild(string $data): void
+    /** @param resource $connection */
+    private function asChild($connection): ?DeferredConnectionShutdown
+    {
+        while (true) {
+            if (!is_resource($connection) || feof($connection)) {
+                stream_socket_shutdown($connection, \STREAM_SHUT_RDWR);
+                fclose($connection);
+                return null;
+            }
+            $read = [$connection];
+            $write = $except = null;
+            stream_select($read, $write, $except, 0, 100000);
+            foreach ($read as $socket) {
+                $data = fgets($socket);
+                if ($data === false || $data === '') {
+                    continue;
+                }
+                return $this->processJob($connection, $data);
+            }
+        }
+    }
+
+    /**
+     * @param resource $connection
+     * @param string $data
+     */
+    private function processJob($connection, string $data): DeferredConnectionShutdown
     {
         $job = PackageSerializer::fromString($data);
         assert($job instanceof Job);
 
-        $returnChannelPath = $job->getReturnChannel();
-        $returnChannel = fopen($returnChannelPath, 'wb+');
-        if (!$returnChannel) {
-            throw new RuntimeException('Could not open return channel', 1620514205);
-        }
-
-        fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
+        fputs($connection, PackageSerializer::toString(new NoOpResponse()));
+        $deferredConnectionShutdown = new DeferredConnectionShutdown($connection);
         try {
-            $writeBack = new WriteBack($returnChannel);
+            $writeBack = new WriteBack($connection);
             $job->run($writeBack);
-
-            register_shutdown_function(static function () use (&$returnChannel) {
-                @fclose($returnChannel);
-            });
+            fputs($connection, PackageSerializer::toString(new NoOpResponse()));
+            return $deferredConnectionShutdown;
         } catch (Exception $throwable) {
-            fputs($returnChannel, PackageSerializer::toString(new ThrowableResponse($throwable)));
+            fputs($connection, PackageSerializer::toString(new ThrowableResponse($throwable)));
+            $deferredConnectionShutdown->close();
             throw $throwable;
-        } finally {
-            fputs($returnChannel, PackageSerializer::toString(new NoOpResponse()));
         }
     }
 }

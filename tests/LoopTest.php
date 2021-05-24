@@ -35,10 +35,10 @@ class LoopTest extends TestCase
             [],
             $pipes,
             getcwd() ?: null,
-            ['AUTOLOADER' => __DIR__ . '/../vendor/autoload.php', 'INPUT_FILE' => $input,]
+            ['AUTOLOADER' => __DIR__ . '/../vendor/autoload.php']
         );
 
-        $output = \file_get_contents($job->getReturnChannel());
+        $output = '\file_get_contents($job->);';
 
         if (!$proc) {
             self::markTestIncomplete('sub process could not be created');
