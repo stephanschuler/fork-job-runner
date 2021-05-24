@@ -64,7 +64,7 @@ namespace StephanSchuler\Demo;
 
 use StephanSchuler\ForkJobRunner\Dispatcher;
 
-$dispatcher = new Dispatcher(
+$dispatcher = Dispatcher::create(
     \escapeshellcmd(\PHP_BINARY) . ' ' . \escapeshellarg(\__DIR__ . '/loop.php')
 );
 
