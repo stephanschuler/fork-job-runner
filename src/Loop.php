@@ -65,6 +65,8 @@ final class Loop
 
         $children = [];
 
+        $harbeat = \fopen('php://fd/3', 'a');
+
         while (true) {
             if (posix_getppid() <= 1) {
                 // Parent is terminated.
@@ -73,6 +75,11 @@ final class Loop
 
             if (!is_resource($socket)) {
                 // Socket is closed
+                break;
+            }
+
+            if (!fputs($harbeat, (string)time())) {
+                // Could not send hartbeat to parent, assume its gone
                 break;
             }
 

@@ -52,6 +52,7 @@ final class LeadingDispatcher extends \StephanSchuler\ForkJobRunner\Dispatcher
             ['pipe', 'rb'],
             ['file', '/dev/null', 'ab'],
             ['file', '/dev/null', 'ab'],
+            ['pipe', 'w'],
         ];
 
         $this->loopProcess = proc_open(
