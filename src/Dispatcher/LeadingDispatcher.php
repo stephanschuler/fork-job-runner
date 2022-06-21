@@ -50,8 +50,8 @@ final class LeadingDispatcher extends \StephanSchuler\ForkJobRunner\Dispatcher
 
         $descriptors = [
             ['pipe', 'rb'],
-            ['file', '/dev/null', 'ab'],
-            ['file', '/dev/null', 'ab'],
+            \STDOUT,
+            \STDERR,
             ['pipe', 'w'],
         ];
 
